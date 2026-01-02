@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donaldma Snake Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #modeSelect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 100;
+        }
+        #modeSelect h2 {
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        .modeBtn {
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 18px;
+            background-color: #00ff00;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .modeBtn:hover {
+            background-color: #00cc00;
+        }
+        #gameCanvas {
+            border: 2px solid #00ff00;
+            background-color: #000;
+        }
+        #joystick {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.2);
+            touch-action: none;
+        }
+        #stick {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #00ff00;
+            transform: translate(-50%, -50%);
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 設備選擇界面 -->
+    <div id="modeSelect">
+        <h2>選擇遊戲模式</h2>
+        <button id="computerBtn" class="modeBtn">電腦模式 (WASD/方向鍵)</button>
+        <button id="tabletBtn" class="modeBtn">平板模式 (觸摸搖桿)</button>
+    </div>
+
+    <!-- 遊戲畫布 -->
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <!-- 平板模式搖桿 -->
+    <div id="joystick">
+        <div id="stick"></div>
+    </div>
+
+    <script>
+        // 核心遊戲變量
+        let canvas, ctx;
+        let snake, direction, food;
+        let score = 0;
+        let gameOver = false;
+        let isComputerMode = true; // 默認電腦模式
+        let touchJoystick = { x: 0, y: 0, isPressed: false };
+
+        // 蛇糧生成概率（默認1%，密碼正確後90%）
+        let foodSpawnRate = 0.01; 
+        // 密碼配置
+        const SECRET_PASSWORD = "bryananddonald";
+        let inputPassword = ""; // 存儲玩家輸入的密碼
+
+        // 初始化遊戲
+        function initGame() {
+            canvas = document.getElementById("gameCanvas");
+            ctx = canvas.getContext("2d");
+            
+            // 綁定設備選擇按鈕事件
+            document.getElementById("computerBtn").addEventListener("click", () => {
+                isComputerMode = true;
+                document.getElementById("modeSelect").style.display = "none";
+                resetGame();
+            });
+            document.getElementById("tabletBtn").addEventListener("click", () => {
+                isComputerMode = false;
+                document.getElementById("modeSelect").style.display = "none";
+                resetGame();
+                initJoystick(); // 初始化觸摸搖桿
+            });
+
+            // 監聽全域鍵盤輸入（密碼+移動控制）
+            document.addEventListener("keydown", handleKeyInput);
+            
+            // Chrome 兼容性修復
+            document.addEventListener('touchstart', function(e) {}, { passive: false });
+            document.addEventListener('touchmove', function(e) {}, { passive: false });
+        }
+
+        // 處理鍵盤輸入（密碼驗證 + 移動控制）
+        function handleKeyInput(e) {
+            // 1. 密碼輸入邏輯（僅接收字母，不分大小寫）
+            const key = e.key.toLowerCase();
+            if (/^[a-z]$/.test(key)) {
+                inputPassword += key;
+                // 截斷多餘字符，只保留密碼長度的最後幾位
+                if (inputPassword.length > SECRET_PASSWORD.length) {
+                    inputPassword = inputPassword.slice(-SECRET_PASSWORD.length);
+                }
+                // 驗證密碼並更新概率
+                if (inputPassword === SECRET_PASSWORD) {
+                    foodSpawnRate = 0.9; // 提升至90%
+                    inputPassword = ""; // 重置輸入框
+                    alert("密碼正確！蛇糧生成概率已提升至90% 🎉");
+                }
+            }
+
+            // 2. 電腦模式移動控制（遊戲未結束時）
+            if (isComputerMode && !gameOver) {
+                switch(e.key) {
+                    case "ArrowUp":
+                    case "w":
+                    case "W":
+                        if (direction !== "down") direction = "up";
+                        break;
+                    case "ArrowDown":
+                    case "s":
+                    case "S":
+                        if (direction !== "up") direction = "down";
+                        break;
+                    case "ArrowLeft":
+                    case "a":
+                    case "A":
+                        if (direction !== "right") direction = "left";
+                        break;
+                    case "ArrowRight":
+                    case "d":
+                    case "D":
+                        if (direction !== "left") direction = "right";
+                        break;
+                    case " ": // 空格鍵重啟遊戲
+                        if (gameOver) resetGame();
+                        break;
+                }
+            }
+        }
+
+        // 初始化平板模式搖桿
+        function initJoystick() {
+            const joystick = document.getElementById("joystick");
+            const stick = document.getElementById("stick");
+            
+            joystick.style.display = "block";
+            const joystickRect = joystick.getBoundingClientRect();
+            const joystickRadius = joystickRect.width / 2;
+
+            // 觸摸開始
+            joystick.addEventListener("touchstart", (e) => {
+                touchJoystick.isPressed = true;
+                updateJoystickPosition(e.touches[0]);
+            });
+
+            // 觸摸移動
+            document.addEventListener("touchmove", (e) => {
+                if (touchJoystick.isPressed) {
+                    updateJoystickPosition(e.touches[0]);
+                }
+            });
+
+            // 觸摸結束
+            document.addEventListener("touchend", () => {
+                touchJoystick.isPressed = false;
+                touchJoystick.x = 0;
+                touchJoystick.y = 0;
+                stick.style.transform = "translate(0,0)";
+            });
+
+            // 更新搖桿位置和蛇移動方向
+            function updateJoystickPosition(touch) {
+                const x = touch.clientX - joystickRect.left - joystickRadius;
+                const y = touch.clientY - joystickRect.top - joystickRadius;
+                const distance = Math.sqrt(x * x + y * y);
+
+                // 限制搖桿移動範圍
+                if (distance > joystickRadius) {
+                    touchJoystick.x = (x / distance) * joystickRadius;
+                    touchJoystick.y = (y / distance) * joystickRadius;
+                } else {
+                    touchJoystick.x = x;
+                    touchJoystick.y = y;
+                }
+
+                // 更新搖桿視覺位置
+                stick.style.transform = `translate(${touchJoystick.x}px, ${touchJoystick.y}px)`;
+
+                // 判斷移動方向
+                if (Math.abs(touchJoystick.y) > Math.abs(touchJoystick.x)) {
+                    direction = touchJoystick.y < 0 ? "up" : "down";
+                } else {
+                    direction = touchJoystick.x > 0 ? "right" : "left";
+                }
+            }
+        }
+
+        // 重置遊戲狀態
+        function resetGame() {
+            // 重置蛇的初始位置
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            direction = "right";
+            score = 0;
+            gameOver = false;
+            foodSpawnRate = 0.01; // 重置蛇糧概率為1%
+            spawnFood(); // 生成初始蛇糧
+            gameLoop(); // 啟動遊戲循環
+        }
+
+        // 生成蛇糧（基於當前概率）
+        function spawnFood() {
+            // 根據概率判斷是否生成蛇糧
+            if (Math.random() > foodSpawnRate) {
+                food = null;
+                return;
+            }
+
+            // 隨機生成蛇糧位置（避開蛇身）
+            do {
+                food = {
+                    x: Math.floor(Math.random() * canvas.width / 20),
+                    y: Math.floor(Math.random() * canvas.height / 20),
+                    type: getRandomFoodType() // 隨機蛇糧類型
+                };
+            } while (snake.some(segment => segment.x === food.x && segment.y === food.y));
+        }
+
+        // 隨機選擇蛇糧類型（加權概率）
+        function getRandomFoodType() {
+            const types = ["apple", "blueberry", "strawberry", "colorful"];
+            const weights = [0.6, 0.2, 0.15, 0.05]; // 蘋果60%、藍莓20%、草莓15%、變色糧5%
+            let randomValue = Math.random();
+            let weightSum = 0;
+
+            for (let i = 0; i < types.length; i++) {
+                weightSum += weights[i];
+                if (randomValue <= weightSum) {
+                    return types[i];
+                }
+            }
+            return "apple"; // 默認蘋果
+        }
+
+        // 繪製遊戲畫面
+        function drawGame() {
+            // 清空畫布
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 遊戲結束畫面
+            if (gameOver) {
+                ctx.fillStyle = "#ff0000";
+                ctx.font = "30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("遊戲結束！分數：" + score, canvas.width/2, canvas.height/2);
+                ctx.fillText("按空格鍵重啟遊戲", canvas.width/2, canvas.height/2 + 40);
+                return;
+            }
+
+            // 繪製蛇
+            snake.forEach((segment, index) => {
+                // 變色蛇糧效果：蛇頭顏色隨機
+                if (food && food.type === "colorful" && index === 0) {
+                    ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                } else {
+                    ctx.fillStyle = index === 0 ? "#00ff00" : "#008000"; // 蛇頭綠色，身體深綠
+                }
+                ctx.fillRect(segment.x * 20, segment.y * 20, 18, 18); // 每段20px，留2px間距
+            });
+
+            // 繪製蛇糧
+            if (food) {
+                switch(food.type) {
+                    case "apple": ctx.fillStyle = "#ff0000"; break; // 蘋果-紅色
+                    case "blueberry": ctx.fillStyle = "#0000ff"; break; // 藍莓-藍色
+                    case "strawberry": ctx.fillStyle = "#ff69b4"; break; // 草莓-粉紅色
+                    case "colorful": ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 50%)`; break; // 變色糧-彩虹色
+                }
+                ctx.fillRect(food.x * 20, food.y * 20, 18, 18);
+            }
+
+            // 繪製分數和蛇糧概率
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "20px Arial";
+            ctx.fillText("分數：" + score, 10, 30);
+            ctx.fillText(`蛇糧概率：${Math.round(foodSpawnRate * 100)}%`, canvas.width - 150, 30);
+        }
+
+        // 更新遊戲邏輯
+        function updateGame() {
+            if (gameOver) return;
+
+            // 移動蛇頭
+            const head = { ...snake[0] };
+            switch(direction) {
+                case "up": head.y--; break;
+                case "down": head.y++; break;
+                case "left": head.x--; break;
+                case "right": head.x++; break;
+            }
+
+            // 碰撞檢測（邊界/自撞）
+            if (
+                head.x < 0 || head.x >= canvas.width / 20 ||
+                head.y < 0 || head.y >= canvas.height / 20 ||
+                snake.some(segment => segment.x === head.x && segment.y === head.y)
+            ) {
+                gameOver = true;
+                return;
+            }
+
+            // 添加新蛇頭
+            snake.unshift(head);
+
+            // 判斷是否吃到蛇糧
+            if (food && head.x === food.x && head.y === food.y) {
+                // 不同蛇糧加分規則
+                switch(food.type) {
+                    case "apple": score += 10; break;
+                    case "blueberry": score += 20; break;
+                    case "strawberry": score += 25; break;
+                    case "colorful": score += 50; break;
+                }
+                spawnFood(); // 生成新蛇糧
+            } else {
+                snake.pop(); // 沒吃到就刪除蛇尾
+            }
+        }
+
+        // 遊戲主循環
+        function gameLoop() {
+            updateGame(); // 更新邏輯
+            drawGame();   // 繪製畫面
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop); // 循環調用
+            }
+        }
+
+        // 頁面加載完成後初始化遊戲
+        window.onload = initGame;
+    </script>
+</body>
+</html>
