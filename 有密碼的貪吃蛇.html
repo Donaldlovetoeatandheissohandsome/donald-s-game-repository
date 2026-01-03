@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>donaldmasnakegame - 獨特貪吃蛇遊戲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #ffd700; /* 黃色背景 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 開始頁面樣式 */
+        .start-screen {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .start-screen h1 {
+            color: #ff0000; /* 紅色標題 */
+            font-size: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .device-buttons {
+            display: flex;
+            gap: 2rem;
+            margin: 2rem 0;
+            justify-content: center;
+        }
+
+        .device-btn {
+            padding: 1.5rem 3rem;
+            font-size: 1.2rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .device-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .author-password-link {
+            margin-top: 2rem;
+            color: #ff0000;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* 密碼輸入界面 */
+        .password-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: red;
+            color: white;
+            border: 2px solid red;
+            padding: 0.5rem 1rem;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .password-input {
+            padding: 1rem;
+            font-size: 1.5rem;
+            margin: 1rem 0;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .submit-password {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* 遊戲容器 */
+        .game-container {
+            display: none;
+            position: relative;
+        }
+
+        #gameCanvas {
+            border: 5px solid red; /* 紅色邊界 */
+            background-color: #ffd700; /* 黃色背景 */
+        }
+
+        /* 平板控制搖桿 */
+        .joystick {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            touch-action: none;
+        }
+
+        .joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            touch-action: none;
+        }
+
+        /* 遊戲信息顯示 */
+        .game-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: red;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: rgba(255,255,255,0.8);
+            padding: 0.5rem;
+            border-radius: 5px;
+        }
+
+        .snack-timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: red;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: rgba(255,255,255,0.8);
+            padding: 0.5rem;
+            border-radius: 5px;
+            display: none;
+        }
+
+        /* 遊戲結束界面 */
+        .game-over {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .game-over h2 {
+            color: red;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .restart-btn {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 開始頁面 -->
+    <div class="start-screen" id="startScreen">
+        <h1>donaldmasnakegame</h1>
+        <div class="device-buttons">
+            <button class="device-btn" id="computerBtn">電腦玩 (WASD/方向鍵)</button>
+            <button class="device-btn" id="tabletBtn">平板玩 (手控搖桿)</button>
+        </div>
+        <div class="author-password-link" id="authorPasswordLink">作者密碼</div>
+    </div>
+
+    <!-- 密碼輸入界面 -->
+    <div class="password-screen" id="passwordScreen">
+        <button class="close-btn" id="closeBtn">X 退出</button>
+        <h2 style="color:white; font-size:2rem; margin-bottom:1rem;">作者的密碼</h2>
+        <input type="password" class="password-input" id="passwordInput" placeholder="輸入密碼...">
+        <button class="submit-password" id="submitPassword">提交</button>
+    </div>
+
+    <!-- 遊戲容器 -->
+    <div class="game-container" id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="game-info" id="gameInfo">分數: 0 | 長度: 1</div>
+        <div class="snack-timer" id="snackTimer">蛇糧倒計時: 15</div>
+    </div>
+
+    <!-- 平板控制搖桿 -->
+    <div class="joystick" id="joystick">
+        <div class="joystick-knob" id="joystickKnob"></div>
+    </div>
+
+    <!-- 遊戲結束界面 -->
+    <div class="game-over" id="gameOver">
+        <h2>遊戲結束!</h2>
+        <p id="finalScore">最終分數: 0</p>
+        <p id="finalLength">最終長度: 1</p>
+        <button class="restart-btn" id="restartBtn">重新開始</button>
+    </div>
+
+    <script>
+        // 全局變量
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameInterval;
+        let snake = [];
+        let snakeSize = 20;
+        let direction = 'right';
+        let nextDirection = 'right';
+        let food = {};
+        let foodType = '';
+        let score = 0;
+        let snakeLength = 1;
+        let gameRunning = false;
+        let deviceType = '';
+        let authorMode = false; // 作者模式（蛇糧概率提升）
+        
+        // 水果概率配置
+        const foodProbabilities = {
+            apple: 30,     // 蘋果 30%
+            blueberry: 20, // 藍莓 20%
+            durian: 5,     // 榴蓮 5%
+            pomegranate: 44, // 石榴 44%
+            snack: 1       // 蛇糧 1%
+        };
+        
+        // 蛇糧相關變量
+        let snackTimer = 15;
+        let snackInterval;
+        let snackColors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
+        let currentSnackColorIndex = 0;
+
+        // DOM 元素
+        const startScreen = document.getElementById('startScreen');
+        const gameContainer = document.getElementById('gameContainer');
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const gameInfo = document.getElementById('gameInfo');
+        const snackTimerEl = document.getElementById('snackTimer');
+        const gameOverEl = document.getElementById('gameOver');
+        const finalScoreEl = document.getElementById('finalScore');
+        const finalLengthEl = document.getElementById('finalLength');
+        const passwordScreen = document.getElementById('passwordScreen');
+
+        // 初始化
+        function initGame() {
+            // 重置遊戲狀態
+            snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            snakeLength = 1;
+            gameRunning = true;
+            
+            // 生成第一個食物
+            generateFood();
+            
+            // 更新遊戲信息
+            updateGameInfo();
+            
+            // 啟動遊戲循環
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, 100);
+        }
+
+        // 遊戲主循環
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // 更新方向
+            direction = nextDirection;
+            
+            // 移動蛇頭
+            const head = { ...snake[0] };
+            switch (direction) {
+                case 'up':
+                    head.y -= snakeSize;
+                    break;
+                case 'down':
+                    head.y += snakeSize;
+                    break;
+                case 'left':
+                    head.x -= snakeSize;
+                    break;
+                case 'right':
+                    head.x += snakeSize;
+                    break;
+            }
+            
+            // 添加新頭部
+            snake.unshift(head);
+            
+            // 檢查邊界碰撞
+            if (
+                head.x < 0 || 
+                head.x >= canvas.width || 
+                head.y < 0 || 
+                head.y >= canvas.height
+            ) {
+                gameOver();
+                return;
+            }
+            
+            // 檢查自體碰撞
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // 檢查是否吃到食物
+            if (
+                head.x < food.x + snakeSize &&
+                head.x + snakeSize > food.x &&
+                head.y < food.y + snakeSize &&
+                head.y + snakeSize > food.y
+            ) {
+                // 根據食物類型增加長度
+                switch (foodType) {
+                    case 'apple':
+                        snakeLength += 2;
+                        score += 2;
+                        break;
+                    case 'blueberry':
+                        snakeLength += 5;
+                        score += 5;
+                        break;
+                    case 'durian':
+                        snakeLength += 10;
+                        score += 10;
+                        break;
+                    case 'pomegranate':
+                        snakeLength += 1;
+                        score += 1;
+                        break;
+                    case 'snack':
+                        snakeLength += 20;
+                        score += 20;
+                        clearInterval(snackInterval);
+                        snackTimerEl.style.display = 'none';
+                        break;
+                }
+                
+                // 生成新食物
+                generateFood();
+                updateGameInfo();
+            } else {
+                // 移除尾部（保持長度）
+                while (snake.length > snakeLength) {
+                    snake.pop();
+                }
+            }
+            
+            // 繪製遊戲畫面
+            drawGame();
+            
+            // 更新蛇糧倒計時
+            if (foodType === 'snack') {
+                updateSnackTimer();
+            }
+        }
+
+        // 繪製遊戲畫面
+        function drawGame() {
+            // 清空畫布
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製蛇
+            ctx.fillStyle = '#4CAF50'; // 綠色蛇
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x, segment.y, snakeSize, snakeSize);
+                // 繪製邊框
+                ctx.strokeStyle = '#2E7D32';
+                ctx.strokeRect(segment.x, segment.y, snakeSize, snakeSize);
+            });
+            
+            // 繪製食物
+            drawFood();
+        }
+
+        // 繪製食物
+        function drawFood() {
+            switch (foodType) {
+                case 'apple':
+                    ctx.fillStyle = 'red';
+                    break;
+                case 'blueberry':
+                    ctx.fillStyle = 'blue';
+                    break;
+                case 'durian':
+                    ctx.fillStyle = '#DAA520'; // 深黃色
+                    break;
+                case 'pomegranate':
+                    ctx.fillStyle = '#DC143C'; // 深紅色
+                    break;
+                case 'snack':
+                    ctx.fillStyle = snackColors[currentSnackColorIndex];
+                    break;
+            }
+            
+            ctx.fillRect(food.x, food.y, snakeSize, snakeSize);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(food.x, food.y, snakeSize, snakeSize);
+        }
+
+        // 生成隨機食物
+        function generateFood() {
+            // 根據概率選擇食物類型
+            const foodTypes = [];
+            let totalProb = 0;
+            
+            // 應用作者模式概率
+            const probabilities = { ...foodProbabilities };
+            if (authorMode) {
+                probabilities.snack = 90;
+                // 調整其他概率
+                const reduceBy = (90 - 1) / 4;
+                probabilities.apple = Math.max(0, 30 - reduceBy);
+                probabilities.blueberry = Math.max(0, 20 - reduceBy);
+                probabilities.durian = Math.max(0, 5 - reduceBy);
+                probabilities.pomegranate = Math.max(0, 44 - reduceBy);
+            }
+            
+            // 構建概率數組
+            for (const [type, prob] of Object.entries(probabilities)) {
+                totalProb += prob;
+                foodTypes.push({ type, prob: totalProb });
+            }
+            
+            // 隨機選擇食物類型
+            const random = Math.random() * totalProb;
+            for (const ft of foodTypes) {
+                if (random <= ft.prob) {
+                    foodType = ft.type;
+                    break;
+                }
+            }
+            
+            // 隨機位置（確保在畫布內）
+            food = {
+                x: Math.floor(Math.random() * (canvas.width / snakeSize)) * snakeSize,
+                y: Math.floor(Math.random() * (canvas.height / snakeSize)) * snakeSize
+            };
+            
+            // 確保食物不生成在蛇身上
+            for (const segment of snake) {
+                if (food.x === segment.x && food.y === segment.y) {
+                    generateFood();
+                    return;
+                }
+            }
+            
+            // 處理蛇糧特殊效果
+            if (foodType === 'snack') {
+                snackTimer = 15;
+                currentSnackColorIndex = 0;
+                snackTimerEl.style.display = 'block';
+                snackTimerEl.textContent = `蛇糧倒計時: ${snackTimer}`;
+                
+                // 啟動蛇糧顏色變換和倒計時
+                if (snackInterval) clearInterval(snackInterval);
+                snackInterval = setInterval(() => {
+                    currentSnackColorIndex = (currentSnackColorIndex + 1) % snackColors.length;
+                    snackTimer--;
+                    snackTimerEl.textContent = `蛇糧倒計時: ${snackTimer}`;
+                    
+                    // 倒計時結束重新生成食物
+                    if (snackTimer <= 0) {
+                        clearInterval(snackInterval);
+                        snackTimerEl.style.display = 'none';
+                        generateFood();
+                    }
+                }, 1000);
+            } else {
+                // 隱藏蛇糧倒計時
+                snackTimerEl.style.display = 'none';
+                if (snackInterval) clearInterval(snackInterval);
+            }
+        }
+
+        // 更新蛇糧倒計時
+        function updateSnackTimer() {
+            snackTimerEl.textContent = `蛇糧倒計時: ${snackTimer}`;
+        }
+
+        // 更新遊戲信息
+        function updateGameInfo() {
+            gameInfo.textContent = `分數: ${score} | 長度: ${snakeLength}`;
+        }
+
+        // 遊戲結束
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameInterval);
+            clearInterval(snackInterval);
+            
+            // 更新結束界面
+            finalScoreEl.textContent = `最終分數: ${score}`;
+            finalLengthEl.textContent = `最終長度: ${snakeLength}`;
+            gameOverEl.style.display = 'block';
+        }
+
+        // 重新開始遊戲
+        function restartGame() {
+            gameOverEl.style.display = 'none';
+            initGame();
+        }
+
+        // 設備選擇處理
+        document.getElementById('computerBtn').addEventListener('click', () => {
+            deviceType = 'computer';
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            initGame();
+        });
+
+        document.getElementById('tabletBtn').addEventListener('click', () => {
+            deviceType = 'tablet';
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            joystick.style.display = 'block';
+            initGame();
+            setupJoystick();
+        });
+
+        // 電腦控制（鍵盤）
+        document.addEventListener('keydown', (e) => {
+            if (deviceType !== 'computer') return;
+            
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (direction !== 'down') nextDirection = 'up';
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (direction !== 'up') nextDirection = 'down';
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (direction !== 'right') nextDirection = 'left';
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (direction !== 'left') nextDirection = 'right';
+                    break;
+            }
+        });
+
+        // 平板控制（搖桿）
+        function setupJoystick() {
+            let isDragging = false;
+            let joystickCenterX = joystick.offsetLeft + joystick.offsetWidth / 2;
+            let joystickCenterY = joystick.offsetTop + joystick.offsetHeight / 2;
+            const maxDistance = joystick.offsetWidth / 2 - joystickKnob.offsetWidth / 2;
+
+            // 觸摸開始
+            joystickKnob.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isDragging = true;
+            });
+
+            // 觸摸移動
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging || deviceType !== 'tablet') return;
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                const dx = touch.clientX - joystickCenterX;
+                const dy = touch.clientY - joystickCenterY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 限制搖桿範圍
+                const limitedDistance = Math.min(distance, maxDistance);
+                const angle = Math.atan2(dy, dx);
+                
+                // 更新搖桿位置
+                joystickKnob.style.transform = `translate(${Math.cos(angle) * limitedDistance - joystick.offsetWidth/2}px, ${Math.sin(angle) * limitedDistance - joystick.offsetHeight/2}px)`;
+                
+                // 判斷方向
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // 左右
+                    nextDirection = dx > 0 ? 'right' : 'left';
+                } else {
+                    // 上下
+                    nextDirection = dy > 0 ? 'down' : 'up';
+                }
+            });
+
+            // 觸摸結束
+            document.addEventListener('touchend', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                // 重置搖桿位置
+                joystickKnob.style.transform = 'translate(-50%, -50%)';
+            });
+        }
+
+        // 作者密碼功能
+        document.getElementById('authorPasswordLink').addEventListener('click', () => {
+            passwordScreen.style.display = 'flex';
+        });
+
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            passwordScreen.style.display = 'none';
+        });
+
+        document.getElementById('submitPassword').addEventListener('click', () => {
+            const password = document.getElementById('passwordInput').value;
+            if (password === 'bryananddonald') {
+                authorMode = true;
+                alert('密碼正確！蛇糧出現率已提升至90%');
+                passwordScreen.style.display = 'none';
+            } else {
+                alert('密碼錯誤！');
+            }
+            document.getElementById('passwordInput').value = '';
+        });
+
+        // 重新開始按鈕
+        document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+        // 點擊密碼輸入框外關閉（可選）
+        window.addEventListener('click', (e) => {
+            if (e.target === passwordScreen) {
+                passwordScreen.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
